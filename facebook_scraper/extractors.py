@@ -40,6 +40,7 @@ class VideoExtractor:
 
         self._data_store = {}
         try:
+            # parent element has data-store with id and src
             parent = next(self.element.element.iterancestors())
             data_store_str = parent.attrib['data-store']
             self._data_store = json.loads(data_store_str)
@@ -62,6 +63,7 @@ class VideoExtractor:
         match = url_regex.search(style_attr)
         thumbnail_url = match.groups()[0] if match else ""
         return utils.decode_css_url(thumbnail_url)
+
     def extract_video(self) -> Dict[str, str]:
         return {
             "id": self.extract_video_id(),

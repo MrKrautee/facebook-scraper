@@ -154,8 +154,12 @@ class PageParser:
         assert self.cursor_blob is not None
 
 class VideoGridPageParser(PageParser):
-    cursor_regex = re.compile(r'href:"(/[^"]+)"')  # First request
-    cursor_regex_2 = re.compile(r'href":"(\\/[^"]+)"')  # Other requests
+    # First request
+    cursor_regex = re.compile(r'href:"(/[^"]+/videos/more/\?cursor=[^"]+)"')
+    # Other requests
+    cursor_regex_2 = re.compile(
+            r'href":"(\\/[^"]+\\/videos\\/more\\/\?cursor=[^"]+)"'
+    )
 
 class GroupPageParser(PageParser):
     cursor_regex_3 = re.compile(r'\shref="(\/groups\/[^"]+bac=[^"]+)"')  # for Group requests
