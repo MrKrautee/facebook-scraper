@@ -10,6 +10,48 @@ from .fb_types import Post
 
 _scraper = FacebookScraper()
 
+def get_videos(
+    account: Optional[str] = None,
+    credentials: Optional[Tuple[str, str]] = None,
+    **kwargs,
+) -> Iterator[Post]:
+    """Get posts from a Facebook page or group.
+
+    Args:
+        account: The account of the page.
+        group: The group id.
+        credentials: Tuple of email and password to login before scraping.
+        timeout (int): Timeout for requests.
+        page_limit (int): How many pages of posts to go through.
+            Use None to try to get all of them.
+        extra_info (bool): Set to True to try to get reactions.
+
+    Yields:
+        dict: The post representation in a dictionary.
+    """
+
+    if not account:
+        raise ValueError("You need to specify account ")
+
+    _scraper.requests_kwargs['timeout'] = kwargs.pop('timeout', DEFAULT_REQUESTS_TIMEOUT)
+
+    options = kwargs.setdefault('options', set())
+
+    # TODO: Deprecate `pages` in favor of `page_limit` since it is less confusing
+    if 'pages' in kwargs:
+        kwargs['page_limit'] = kwargs.pop('pages')
+
+    # TODO: Deprecate `extra_info` in favor of `options`
+    extra_info = kwargs.pop('extra_info', False)
+    if extra_info:
+        options.add('reactions')
+
+    if credentials is not None:
+        _scraper.login(*credentials)
+
+    if account is not None:
+        return _scraper.get_videos(account, **kwargs)
+
 
 def get_posts(
     account: Optional[str] = None,

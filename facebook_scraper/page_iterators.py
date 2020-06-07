@@ -15,11 +15,54 @@ def iter_pages(account: str, request_fn: RequestFunction) -> Iterator[Page]:
     start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'/{account}/posts/')
     return generic_iter_pages(start_url, PageParser, request_fn)
 
+def iter_video_pages(account: str, request_fn: RequestFunction) -> Iterator[Page]:
+    start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'/{account}/video_grid/')
+    return videos_iter_pages(start_url, VideoGridPageParser, request_fn)
 
 def iter_group_pages(group: str, request_fn: RequestFunction) -> Iterator[Page]:
     start_url = utils.urljoin(FB_MOBILE_BASE_URL, f'groups/{group}/')
     return generic_iter_pages(start_url, GroupPageParser, request_fn)
 
+
+def videos_iter_pages(start_url, page_parser_cls, request_fn: RequestFunction) -> Iterator[Page]:
+    next_url = start_url
+
+    def get_page(html: Element) -> Page:
+        videos_tmp = html.find('i')
+        videos = []
+        for v in videos_tmp:
+            if "data-sigil" in v.attrs.keys():
+                if v.attrs["data-sigil"] == "playInlineVideo":
+                    videos.append(v)
+        #print(videos)
+        if not videos:
+            logger.warning("No raw posts (<article> elements) were found in this page.")
+            if logger.isEnabledFor(logging.DEBUG):
+                import html2text
+                content = html2text.html2text(html.html)
+                logger.debug("The page content is:\n %s\n", content)
+        return videos
+
+    while next_url:
+        logger.debug("Requesting page from: %s", next_url)
+        response = request_fn(next_url)
+
+        logger.debug("Parsing page response")
+        parser = page_parser_cls(response)
+
+        html = parser.get_html()
+
+        page = get_page(html)
+        logger.debug("Got %s <article> elements from page", len(page))
+        yield page
+
+        logger.debug("Looking for next page URL")
+        next_page = parser.get_next_page()
+        if next_page:
+            next_url = utils.urljoin(FB_MOBILE_BASE_URL, next_page)
+        else:
+            logger.info("Page parser did not find next page URL")
+            next_url = None
 
 def generic_iter_pages(start_url, page_parser_cls, request_fn: RequestFunction) -> Iterator[Page]:
     next_url = start_url
@@ -110,6 +153,9 @@ class PageParser:
         assert self.html is not None
         assert self.cursor_blob is not None
 
+class VideoGridPageParser(PageParser):
+    cursor_regex = re.compile(r'href:"(/[^"]+)"')  # First request
+    cursor_regex_2 = re.compile(r'href":"(\\/[^"]+)"')  # Other requests
 
 class GroupPageParser(PageParser):
     cursor_regex_3 = re.compile(r'\shref="(\/groups\/[^"]+bac=[^"]+)"')  # for Group requests

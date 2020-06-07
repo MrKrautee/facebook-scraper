@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 # Typing
 PartialPost = Optional[Dict[str, Any]]
 
+def extract_video(element: Element, options: Options, request_fn: RequestFunction) -> Post:
+    return VideoExtractor(element, options, request_fn).extract_video()
 
 def extract_post(element: Element, options: Options, request_fn: RequestFunction) -> Post:
     return PostExtractor(element, options, request_fn).extract_post()
@@ -23,6 +25,49 @@ def extract_post(element: Element, options: Options, request_fn: RequestFunction
 
 def extract_group_post(element: Element, options: Options, request_fn: RequestFunction) -> Post:
     return GroupPostExtractor(element, options, request_fn).extract_post()
+
+class VideoExtractor:
+    def __init__(self, element, options, request_fn):
+        self.element = element
+        self.options = options
+        self.request = request_fn
+        self._data_store = None
+
+    @property
+    def data_store(self) -> dict:
+        if self._data_store is not None:
+            return self._data_store
+
+        self._data_store = {}
+        try:
+            parent = next(self.element.element.iterancestors())
+            data_store_str = parent.attrib['data-store']
+            self._data_store = json.loads(data_store_str)
+        except JSONDecodeError as ex:
+            logger.error("Error parsing data-store JSON: %r", ex)
+        except KeyError:
+            logger.error("data-store attribute not found")
+
+        return self._data_store
+
+    def extract_video_id(self):
+        return self.data_store['videoID']
+
+    def extract_video_src(self):
+        return self.data_store['src']
+
+    def extract_thumbnail(self):
+        style_attr = self.element.attrs["style"]
+        url_regex = re.compile(r"background-image: url\('(https[^']+)'\)")
+        match = url_regex.search(style_attr)
+        thumbnail_url = match.groups()[0] if match else ""
+        return utils.decode_css_url(thumbnail_url)
+    def extract_video(self) -> Dict[str, str]:
+        return {
+            "id": self.extract_video_id(),
+            "src": self.extract_video_src(),
+            "thumbnail": self.extract_thumbnail(),
+        }
 
 
 class PostExtractor:
